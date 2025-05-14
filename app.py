@@ -14,12 +14,14 @@ st.set_page_config(
     page_title="E-Commerce Churn Predictor",
     page_icon="🛒",
     layout="centered",
-    initial_sidebar_state="auto"
+    initial_sidebar_state="auto",
 )
 
 # Title and Instructions
 st.title("🛒 E-Commerce Customer Churn Predictor")
-st.markdown("Use this tool to predict whether a customer is likely to churn based on their activity and behavior.")
+st.markdown(
+    "Use this tool to predict whether a customer is likely to churn based on their activity and behavior."
+)
 
 st.markdown("---")
 
@@ -30,18 +32,23 @@ col1, col2 = st.columns(2)
 
 with col1:
     tenure = st.number_input("Tenure (in months)", min_value=0)
-    complain = st.selectbox("Filed Any Complaint?", [0, 1], format_func=lambda x: "No" if x == 0 else "Yes")
+    complain = st.selectbox(
+        "Filed Any Complaint?", [0, 1], format_func=lambda x: "No" if x == 0 else "Yes"
+    )
     cashback = st.number_input("Cashback Received", min_value=0.0)
-    satisfaction = st.selectbox("Satisfaction Score (1 - Worst, 5 - Best)", [1, 2, 3, 4, 5])
+    satisfaction = st.selectbox(
+        "Satisfaction Score (1 - Worst, 5 - Best)", [1, 2, 3, 4, 5]
+    )
     last_order_days = st.number_input("Days Since Last Order", min_value=0)
-    
+
 with col2:
     address_count = st.number_input("Number of Addresses", min_value=1)
     city_tier = st.selectbox("City Tier", [1, 2, 3])
     distance = st.number_input("Distance from Warehouse (in km)", min_value=0)
-    preferred_cat = st.selectbox("Preferred Order Category", [
-        "Laptop & Accessory", "Mobile", "Mobile Phone", "Others", "Fashion"
-    ])
+    preferred_cat = st.selectbox(
+        "Preferred Order Category",
+        ["Laptop & Accessory", "Mobile", "Mobile Phone", "Others", "Fashion"],
+    )
     device_count = st.number_input("Devices Registered", min_value=1)
 
 # Optional backend-used fields
@@ -64,7 +71,7 @@ user_input = {
     "WarehouseToHome": distance,
     "PreferedOrderCat": preferred_cat,
     "NumberOfDeviceRegistered": device_count,
-    **default_values
+    **default_values,
 }
 
 input_df = pd.DataFrame([user_input])
@@ -99,5 +106,6 @@ if st.button("🚀 Predict Churn"):
     st.info(f"📊 **Churn Probability:** {probability:.2%}")
 
     st.markdown("---")
-    st.caption("🔍 This prediction is based on behavioral and transaction data. Use it to take proactive actions.")
-
+    st.caption(
+        "🔍 This prediction is based on behavioral and transaction data. Use it to take proactive actions."
+    )
