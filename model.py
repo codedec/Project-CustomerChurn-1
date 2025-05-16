@@ -1,62 +1,57 @@
+import os
+import joblib
 import pandas as pd
 import numpy as np
-import joblib
-import os
 from sklearn.impute import SimpleImputer
 from sklearn.preprocessing import LabelEncoder
-from sklearn.model_selection import train_test_split, RandomizedSearchCV
+from sklearn.model_selection import train_test_split, RandomizedSearchCV, cross_val_score, StratifiedKFold
 from sklearn.ensemble import RandomForestClassifier
-from sklearn.linear_model import LogisticRegression
-from sklearn.svm import SVC
-from xgboost import XGBClassifier
-from sklearn.metrics import classification_report, confusion_matrix, roc_auc_score
+from sklearn.metrics import classification_report
 from imblearn.over_sampling import SMOTE
 
-
-# ================== Data Preprocessing Function ==================
+#    Data Preprocessing Function
+# ================================
 def preprocess_data(df, label_encoders=None, num_imputer=None, training=True):
-    # Replace values in categorical columns
-    if "PreferredLoginDevice" in df.columns:
-        df["PreferredLoginDevice"] = df["PreferredLoginDevice"].replace(
-            "Phone", "Mobile Phone"
-        )
-    if "PreferredPaymentMode" in df.columns:
-        df["PreferredPaymentMode"] = df["PreferredPaymentMode"].replace(
-            "CC", "Credit Card"
-        )
-        df["PreferredPaymentMode"] = df["PreferredPaymentMode"].replace(
-            "COD", "Cash on Delivery"
-        )
-    if "PreferedOrderCat" in df.columns:
-        df["PreferedOrderCat"] = df["PreferedOrderCat"].replace(
-            "Mobile", "Mobile Phone"
-        )
+    """
+    Cleans, transforms, and encodes the input dataframe for model training or prediction.
+    """
 
-    # Drop ID column
+    # ---- Replace values for consistency in categorical columns ----
+    if "PreferredLoginDevice" in df.columns:
+        df["PreferredLoginDevice"] = df["PreferredLoginDevice"].replace("Phone", "Mobile Phone")
+    if "PreferredPaymentMode" in df.columns:
+        df["PreferredPaymentMode"] = df["PreferredPaymentMode"].replace("CC", "Credit Card")
+        df["PreferredPaymentMode"] = df["PreferredPaymentMode"].replace("COD", "Cash on Delivery")
+    if "PreferedOrderCat" in df.columns:
+        df["PreferedOrderCat"] = df["PreferedOrderCat"].replace("Mobile", "Mobile Phone")
+
+    # ---- Drop columns not needed for model training ----
+    drop_cols = ["Gender", "MaritalStatus", "PreferredLoginDevice", "PreferredPaymentMode"]
+    df = df.drop(columns=[col for col in drop_cols if col in df.columns])
+
+    # ---- Drop identifier column ----
     if "CustomerID" in df.columns:
         df = df.drop(columns=["CustomerID"])
 
-    # Identify numerical and categorical columns
-    num_cols = df.select_dtypes(include=["float64", "int64"]).columns.drop(
-        "Churn", errors="ignore"
-    )
+    # ---- Separate numerical and categorical columns ----
+    num_cols = df.select_dtypes(include=["float64", "int64"]).columns.drop("Churn", errors="ignore")
     cat_cols = df.select_dtypes(include="object").columns
 
-    # Impute missing values
+    # ---- Impute missing numerical values ----
     if training:
         num_imputer = SimpleImputer(strategy="mean")
         df[num_cols] = num_imputer.fit_transform(df[num_cols])
     else:
         df[num_cols] = num_imputer.transform(df[num_cols])
 
-    # Save dataset before encoding for analysis
+    # ---- Save cleaned data before encoding (for analysis) ----
     if training:
         unencoded_path = "data/cleaned/E_Commerce_Cleaned_Before_Encoding.xlsx"
         os.makedirs(os.path.dirname(unencoded_path), exist_ok=True)
         df.to_excel(unencoded_path, index=False)
         print("✅ Cleaned dataset (before encoding) saved successfully.")
 
-    # Encode categorical columns
+    # ---- Encode categorical features using Label Encoding ----
     if training:
         label_encoders = {}
         for col in cat_cols:
@@ -71,118 +66,91 @@ def preprocess_data(df, label_encoders=None, num_imputer=None, training=True):
     return df, label_encoders, num_imputer
 
 
-# ================== Load & Preprocess Data ==================
-df_raw = pd.read_excel(
-    r"D:\PYTHON 3\ICTAK Python3\customer_churn_prediction\data\raw\E Commerce Dataset.xlsx",
-    sheet_name="E Comm",
-)
+#         Load Raw Dataset
+# ================================
+df_raw = pd.read_excel("data/raw/E Commerce Dataset.xlsx", sheet_name="E Comm")
 
+#     Clean & Encode Dataset
+# =================================
 df_cleaned, label_encoders, num_imputer = preprocess_data(df_raw, training=True)
-
-output_dir = "D:/PYTHON 3/ICTAK Python3/customer_churn_prediction/data/cleaned"
-os.makedirs(output_dir, exist_ok=True)
-df_cleaned.to_excel(os.path.join(output_dir, "E_Commerce_Cleaned.xlsx"), index=False)
-print("✅ Cleaned dataset (after encoding) saved successfully.")
 
 X = df_cleaned.drop(columns=["Churn"])
 y = df_cleaned["Churn"]
 
-# ================== Handle Class Imbalance ==================
+
+#      Handle Imbalanced Data
+# ================================
 smote = SMOTE(random_state=42)
 X_resampled, y_resampled = smote.fit_resample(X, y)
 
-# ================== Train-Test Split ==================
+
+#       Train/Test Split
+# ================================
 X_train, X_test, y_train, y_test = train_test_split(
     X_resampled, y_resampled, test_size=0.2, random_state=42
 )
 
-# ================== Random Forest Tuning & Training ==================
+#     Random Forest Hyperparams
+# ================================
 param_grid = {
     "n_estimators": [100, 200, 300],
-    "max_depth": [10, 15, 20],
+    "max_depth": [10, 12, 15],
     "min_samples_split": [2, 5, 10],
-    "min_samples_leaf": [1, 2, 4],
+    "min_samples_leaf": [2, 4, 6],
     "class_weight": ["balanced"],
 }
 
+
+#    Hyperparameter Tuning (RSCV)
+# ================================
 rf = RandomForestClassifier(random_state=42)
 random_search = RandomizedSearchCV(
     rf, param_grid, cv=5, scoring="roc_auc", n_iter=10, verbose=2, n_jobs=-1
 )
 random_search.fit(X_train, y_train)
-print("✅ Best Hyperparameters:", random_search.best_params_)
 
-# ================== Feature Importance ==================
-best_rf = RandomForestClassifier(**random_search.best_params_, random_state=42)
+
+#     Train Best Random Forest
+# ================================
+best_rf = RandomForestClassifier(
+    **random_search.best_params_,
+    max_samples=0.8,
+    random_state=42
+)
 best_rf.fit(X_train, y_train)
 
-importances = best_rf.feature_importances_
-feature_names = best_rf.feature_names_in_
-sorted_indices = np.argsort(importances)[::-1]
-top_n = 10
-top_features = feature_names[sorted_indices[:top_n]]
 
-print("\n✅ Top Feature Importances:")
-for i in range(top_n):
-    print(f"{feature_names[sorted_indices[i]]}: {importances[sorted_indices[i]]:.4f}")
+#        Model Evaluation
+# ================================
+required_features = list(best_rf.feature_names_in_)
+X_train_reduced = X_train[required_features]
+X_test_reduced = X_test[required_features]
 
-X_train_reduced = X_train[top_features]
-X_test_reduced = X_test[top_features]
+train_score = best_rf.score(X_train_reduced, y_train)
+test_score = best_rf.score(X_test_reduced, y_test)
+print(f"Train Accuracy: {train_score:.4f}")
+print(f"Test Accuracy: {test_score:.4f}")
 
-# ================== Final Random Forest Model ==================
-final_model = RandomForestClassifier(**random_search.best_params_, random_state=42)
-final_model.fit(X_train_reduced, y_train)
-
-y_pred = final_model.predict(X_test_reduced)
-print(
-    "\n🔸 [Random Forest] Classification Report:\n",
-    classification_report(y_test, y_pred),
+# ---- Cross-validation ----
+cv = StratifiedKFold(n_splits=5, shuffle=True, random_state=42)
+cv_scores = cross_val_score(
+    best_rf,
+    X_resampled[required_features],
+    y_resampled,
+    cv=cv,
+    scoring="accuracy"
 )
-print("🔸 Confusion Matrix:\n", confusion_matrix(y_test, y_pred))
-print(
-    "🔸 ROC-AUC Score:",
-    roc_auc_score(y_test, final_model.predict_proba(X_test_reduced)[:, 1]),
-)
+print(f"CV Accuracy: {cv_scores.mean():.4f} ± {cv_scores.std():.4f}")
 
-# ================== Other Models (Evaluation Only) ==================
-# Logistic Regression
-lr = LogisticRegression(max_iter=1000)
-lr.fit(X_train_reduced, y_train)
-y_pred_lr = lr.predict(X_test_reduced)
-print(
-    "\n🔸 [Logistic Regression] Classification Report:\n",
-    classification_report(y_test, y_pred_lr),
-)
-print(
-    "🔸 ROC-AUC Score:", roc_auc_score(y_test, lr.predict_proba(X_test_reduced)[:, 1])
-)
 
-# SVM
-svm = SVC(probability=True)
-svm.fit(X_train_reduced, y_train)
-y_pred_svm = svm.predict(X_test_reduced)
-print("\n🔸 [SVM] Classification Report:\n", classification_report(y_test, y_pred_svm))
-print(
-    "🔸 ROC-AUC Score:", roc_auc_score(y_test, svm.predict_proba(X_test_reduced)[:, 1])
-)
-
-# XGBoost
-xgb = XGBClassifier(use_label_encoder=False, eval_metric="logloss")
-xgb.fit(X_train_reduced, y_train)
-y_pred_xgb = xgb.predict(X_test_reduced)
-print(
-    "\n🔸 [XGBoost] Classification Report:\n", classification_report(y_test, y_pred_xgb)
-)
-print(
-    "🔸 ROC-AUC Score:", roc_auc_score(y_test, xgb.predict_proba(X_test_reduced)[:, 1])
-)
-
-# ================== Save Final Random Forest Model ==================
+#        Save Model Bundle
+# ================================
 model_bundle = {
-    "model": final_model,
-    "features": list(top_features),
+    "model": best_rf,
+    "features": required_features,
     "label_encoders": label_encoders,
     "num_imputer": num_imputer,
 }
+
 joblib.dump(model_bundle, "churn_model_bundle.pkl")
-print("\n✅ Final Random Forest model saved as 'churn_model_bundle.pkl'")
+print("✅ Model saved as 'churn_model_bundle.pkl'")
