@@ -30,7 +30,7 @@ warnings.filterwarnings('ignore')
 # Set plot style for consistency (use 'seaborn-v0_8' to avoid style error)
 plt.style.use('seaborn-v0_8')
 
-df =pd.read_excel("/data/E Commerce Dataset.xlsx",sheet_name='E Comm')
+df =pd.read_excel("data/E Commerce Dataset.xlsx",sheet_name='E Comm')
 
 df.head()
 
