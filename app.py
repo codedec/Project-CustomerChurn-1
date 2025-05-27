@@ -61,7 +61,7 @@ with col2:
     distance = st.number_input("Distance from Warehouse (km)", min_value=0)
     preferred_cat = st.selectbox(
         "Preferred Order Category",
-        ["Laptop & Accessory", "Mobile", "Mobile Phone", "Others", "Fashion"],
+        ["Laptop & Accessory", "Mobile Phone", "Others", "Fashion"],
     )
     device_count = st.number_input("Devices Registered", min_value=1)
 
