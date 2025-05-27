@@ -68,7 +68,7 @@ def preprocess_data(df, label_encoders=None, num_imputer=None, training=True):
 
 #         Load Raw Dataset
 # ================================
-df_raw = pd.read_excel("data/raw/E Commerce Dataset.xlsx", sheet_name="E Comm")
+df_raw = pd.read_excel("data/E Commerce Dataset.xlsx", sheet_name="E Comm")
 
 #     Clean & Encode Dataset
 # =================================

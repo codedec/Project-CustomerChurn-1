@@ -1,30 +1,56 @@
 import streamlit as st
 import joblib
 import pandas as pd
+import base64
 
+
+# Function to set background image
+def set_background(image_path):
+    with open(image_path, "rb") as image_file:
+        encoded = base64.b64encode(image_file.read()).decode()
+    css = f"""
+    <style>
+    .stApp {{
+        background-image: url("data:image/png;base64,{encoded}");
+        background-size: cover;
+        background-repeat: no-repeat;
+        background-position: center;
+    }}
+    </style>
+    """
+    st.markdown(css, unsafe_allow_html=True)
+
+
+# App config
+st.set_page_config(
+    page_title="E-Commerce Churn Predictor", page_icon="🛒", layout="centered"
+)
+
+
+# Load model and assets
 model_bundle = joblib.load("churn_model_bundle.pkl")
 model = model_bundle["model"]
 top_features = model_bundle["features"]
 label_encoders = model_bundle["label_encoders"]
 num_imputer = model_bundle["num_imputer"]
 
-st.set_page_config(
-    page_title="E-Commerce Churn Predictor",
-    page_icon="🛒",
-    layout="centered"
-)
 
 st.title("🛒 E-Commerce Customer Churn Predictor")
 st.markdown("Predict customer churn likelihood using behavior data.")
 st.markdown("---")
 
+
 st.subheader("📋 Customer Information")
+# Set background
+set_background("churn_background.png")
 
 col1, col2 = st.columns(2)
 
 with col1:
     tenure = st.number_input("Tenure (months)", min_value=0)
-    complain = st.selectbox("Filed Any Complaint?", [0, 1], format_func=lambda x: "No" if x == 0 else "Yes")
+    complain = st.selectbox(
+        "Filed Any Complaint?", [0, 1], format_func=lambda x: "No" if x == 0 else "Yes"
+    )
     cashback = st.number_input("Cashback Received", min_value=0.0)
     satisfaction = st.selectbox("Satisfaction Score (1-5)", [1, 2, 3, 4, 5])
     last_order_days = st.number_input("Days Since Last Order", min_value=0)
@@ -33,7 +59,10 @@ with col2:
     address_count = st.number_input("Number of Addresses", min_value=1)
     city_tier = st.selectbox("City Tier", [1, 2, 3])
     distance = st.number_input("Distance from Warehouse (km)", min_value=0)
-    preferred_cat = st.selectbox("Preferred Order Category", ["Laptop & Accessory", "Mobile", "Mobile Phone", "Others", "Fashion"])
+    preferred_cat = st.selectbox(
+        "Preferred Order Category",
+        ["Laptop & Accessory", "Mobile", "Mobile Phone", "Others", "Fashion"],
+    )
     device_count = st.number_input("Devices Registered", min_value=1)
 
 # Backend-used default values
